@@ -1,0 +1,114 @@
+const webhooks = [""]; // Tuto d'une personne choisie au hasard : https://youtu.be/P2Dt_UGa-Fs?t=532
+
+// 🎯 Ceci définit les variables, qui peuvent être renseignées ; elles sont complètement facultatives.
+// - Le titre peut être ce que vous saisissez ci-dessous, mais si vous le laissez vide, le script le remplira avec le titre du formulaire.
+// - L'image d'avatar est la petite vignette que vous voyez sur les intégrations, c'est idéal pour un logo.
+// - La description courte est idéale si vous souhaitez ajouter un tout petit peu d'informations.
+// - La couleur vous permet de saisir une couleur hexadécimale personnalisée, si elle est laissée vide, une couleur sera choisie au hasard à chaque fois.
+// - La mention est idéale si vous souhaitez être alerté ou si vous souhaitez qu'un certain rôle soit alerté. Mentionnez l'utilisateur/rôle dans Discord avec un \ au début de la mise en forme.
+// - Le type est une nouvelle variable obligatoire, indiquez soit "EMBED" soit "TEXT" - la valeur par défaut est "EMBED".
+
+const title = "Un titre",
+      avatarImage = "Le lien d'une image",
+      shortDescription = "Une courte description",
+      colour = "#000000",
+      mention = "<@!>",
+      type = "EMBED"; // Valeur par défaut
+
+// 🎛️ Fonctionnalités supplémentaires : vous pouvez les activer ou les désactiver. 
+// Les valeurs par défaut sont celles définies ci-dessous.
+
+const bonusFeatures = {
+    convert2Link: 'ON', // Les liens intégrés seront cliquables | Les liens texte ne seront pas intégrés.
+    convert2Mention: 'ON' // Vérifie s'il existe un identifiant Discord et le convertit en mention.
+}
+
+// 📌 Cela définit et récupère le formulaire actuel, toutes les réponses du formulaire, 
+// la dernière réponse reçue et les éléments des questions-réponses de la dernière résolution.
+
+const form = FormApp.getActiveForm();
+const allResponses = form.getResponses();
+const latestResponse = allResponses[allResponses.length - 1];
+
+if (!latestResponse) throw "❌ Aucune réponse trouvée dans votre formulaire.";
+
+const response = latestResponse.getItemResponses();
+const items = response
+    .filter(r => r.getResponse()) // Filtre les réponses vides
+    .map(r => ({ name: r.getItem().getTitle(), value: r.getResponse() }));
+
+// ✅ Vérifie si un webhook est renseigné
+for (const hook of webhooks) {
+    if (!/^https?:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/i.test(hook)) {
+        throw `❌ Webhook invalide : ${hook}`;
+    }
+}
+
+// 🖼️ Vérifie si l’URL de l’image est bien une URL directe d’image
+if (avatarImage && !/\.(jpeg|jpg|gif|png|webp)$/i.test(avatarImage)) {
+    throw "❌ L'URL de l'image doit être un lien direct.";
+}
+
+// 🔗 Fonction pour formater les réponses du formulaire en texte Discord
+function formatData(item) {
+    const linkRegex = /https?:\/\/[^\s]+/i;
+
+    // Convertit un ID Discord en mention si activé
+    if (bonusFeatures.convert2Mention === 'ON' && !isNaN(item.value) && item.value.length === 18) {
+        item.value = `<@!${item.value}>`;
+    }
+
+    // Convertit les liens en format cliquable
+    if (bonusFeatures.convert2Link === 'ON' && linkRegex.test(item.value)) {
+        item.value = type.toLowerCase() !== "text" ? `[${item.value}](${item.value})` : `<${item.value}>`;
+    }
+
+    return `**${item.name}**\n${item.value}`;
+}
+
+// 🛑 Vérification de la limite de caractères de Discord
+const formattedData = items.map(formatData).join('\n\n');
+if (formattedData.length + shortDescription.length > 1999) {
+    throw "❌ Limite de Discord atteinte. Veuillez raccourcir les questions.";
+}
+
+// 📝 Fonction pour envoyer un message en texte brut (non embed)
+function plainText() {
+    const payload = {
+        method: "post",
+        headers: { "Content-Type": "application/json" },
+        muteHttpExceptions: true,
+        payload: JSON.stringify({
+            content: `${mention ? mention : ''}\n**${title || form.getTitle()}**\n\n${shortDescription ? `${shortDescription}\n\n${formattedData}` : formattedData}`
+        })
+    };
+
+    // 🚀 Envoi du message à tous les webhooks
+    for (const hook of webhooks) {
+        UrlFetchApp.fetch(hook, payload);
+    }
+}
+
+// 🖼️ Fonction pour envoyer un message en embed
+function embedText() {
+    const embed = {
+        method: "post",
+        headers: { "Content-Type": "application/json" },
+        muteHttpExceptions: true,
+        payload: JSON.stringify({
+            content: mention || '',
+            embeds: [{
+                title: title || form.getTitle(), // Soit le titre défini, soit le titre du formulaire
+                description: shortDescription ? `${shortDescription}\n\n${formattedData}` : formattedData, // Description + réponses
+                thumbnail: avatarImage ? { url: encodeURI(avatarImage) } : null, // Image miniature
+                color: parseInt(colour.substr(1), 16) || Math.floor(Math.random() * 16777215), // Couleur personnalisée ou aléatoire
+                timestamp: new Date().toISOString() // Date du jour
+            }]
+        })
+    };
+
+    // 🚀 Envoi du message embed à tous les webhooks
+    for (const hook of webhooks) {
+        UrlFetchApp.fetch(hook, embed);
+    }
+}
