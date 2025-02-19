@@ -86,7 +86,7 @@ Vous pouvez personnaliser :
 ---
 
 ## 👨‍💻 Auteur
-Repris de Its et amélioré par **[Spirit RP](https://github.com/Ton-Nom-Utilisateur)**.  
+Repris de Its et amélioré par **[Spirit RP](https://github.com/Spirit-RP)**.  
 Si vous aimez ce projet, **⭐ Mettez une étoile !** 😊
 
 📧 **Contact** : [Discord](https://discord.gg/spiritfa)
